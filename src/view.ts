@@ -116,7 +116,7 @@ export class PrStatusViewProvider implements vscode.WebviewViewProvider, vscode.
 
 	private update() {
 		const sections = this.store.sections;
-		const n = countNeedsYou(sections);
+		const n = countNeedsYou(sections, new Set(this.local.current.keys()));
 		this.statusBar.text = `$(git-pull-request) ${n} need you`;
 		if (n) {
 			this.statusBar.show();

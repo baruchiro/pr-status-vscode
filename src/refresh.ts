@@ -127,6 +127,8 @@ export class Refresher implements vscode.Disposable {
 	private timer: NodeJS.Timeout | undefined;
 	private busy = false;
 	private due = false;
+	private rerun = false;
+	private disposed = false;
 	private readonly disposables: vscode.Disposable[] = [];
 
 	constructor(private readonly store: StatusStore) {
@@ -177,6 +179,9 @@ export class Refresher implements vscode.Disposable {
 	private schedule() {
 		clearTimeout(this.timer);
 		this.timer = undefined;
+		if (this.disposed) {
+			return;
+		}
 		const interval = this.intervalMs();
 		const untrusted = !vscode.workspace.isTrusted;
 		if (interval && !untrusted) {
@@ -204,6 +209,7 @@ export class Refresher implements vscode.Disposable {
 
 	async refreshNow(interactive = false): Promise<void> {
 		if (this.busy) {
+			this.rerun ||= interactive;
 			return;
 		}
 		this.busy = true;
@@ -215,6 +221,10 @@ export class Refresher implements vscode.Disposable {
 			this.busy = false;
 			this.due = false;
 			this.schedule();
+		}
+		if (this.rerun && !this.disposed) {
+			this.rerun = false;
+			await this.refreshNow(true);
 		}
 	}
 
@@ -246,6 +256,7 @@ export class Refresher implements vscode.Disposable {
 	}
 
 	dispose() {
+		this.disposed = true;
 		clearTimeout(this.timer);
 		this.disposables.forEach(d => d.dispose());
 	}

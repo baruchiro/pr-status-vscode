@@ -39,9 +39,10 @@ suite("model", () => {
 		assert.strictEqual(pickNext([sec([a])], new Set()), undefined);
 	});
 
-	test("countNeedsYou counts each PR once across files", () => {
+	test("countNeedsYou counts each PR once across files, skipping local changes", () => {
 		const y = pr({ number: 7, next: "you" });
-		assert.strictEqual(countNeedsYou([sec([y]), sec([y], "/x"), { folder: "/z", error: "bad" }]), 1);
+		assert.strictEqual(countNeedsYou([sec([y]), sec([y], "/x"), { folder: "/z", error: "bad" }], new Set()), 1);
+		assert.strictEqual(countNeedsYou([sec([y])], new Set(["o/r#7"])), 0);
 	});
 
 	test("parseStatusFile rejects bad input", () => {

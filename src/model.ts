@@ -91,11 +91,11 @@ export function pickNext(sections: Section[], localChanges: ReadonlySet<string>)
 	return undefined;
 }
 
-export function countNeedsYou(sections: Section[]): number {
+export function countNeedsYou(sections: Section[], localChanges: ReadonlySet<string>): number {
 	const keys = new Set<string>();
 	for (const s of sections) {
 		for (const p of s.file?.prs ?? []) {
-			if (p.next === "you") {
+			if (p.next === "you" && !localChanges.has(prKey(p))) {
 				keys.add(prKey(p));
 			}
 		}
