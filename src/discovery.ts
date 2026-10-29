@@ -23,6 +23,7 @@ export class StatusStore implements vscode.Disposable {
 	private current = new Map<string, Section>();
 	private watchers: vscode.Disposable[] = [];
 	private readonly foldersListener: vscode.Disposable;
+	private folders: string[] = [];
 	private generation = 0;
 
 	constructor() {
@@ -31,7 +32,7 @@ export class StatusStore implements vscode.Disposable {
 	}
 
 	get sections(): Section[] {
-		return [...this.current.values()];
+		return this.folders.flatMap(f => this.current.get(f) ?? []);
 	}
 
 	private watchAll() {
@@ -43,6 +44,7 @@ export class StatusStore implements vscode.Disposable {
 			(vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath),
 			workspaceFile?.scheme === "file" ? workspaceFile.fsPath : undefined,
 		);
+		this.folders = folders;
 		this.current = new Map([...this.current].filter(([folder]) => folders.includes(folder)));
 		for (const folder of folders) {
 			const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(folder), FILE_NAME));
