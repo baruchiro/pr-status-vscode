@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 // import * as myExtension from '../../extension';
 import { candidateFolders, loadSection } from '../discovery';
 import { findScript, prSpecs, runRefresh } from '../refresh';
+import { RepoInfo, localChangesFor, parseRemote } from '../localChanges';
 import { Pr, Section, countNeedsYou, parseStatusFile, pickNext, pillFor } from '../model';
 
 export const pr = (o: Partial<Pr>): Pr => ({ repo: "o/r", number: 1, title: "t", url: "u", base: "main", phase: "ready", status: "ready:ready", next: "merge", hint: "", reviewOrder: null, ...o });
@@ -140,5 +141,24 @@ suite("refresh", () => {
 			assert.deepStrictEqual(await runRefresh(folder, script, [], "/bin/bash"), { ok: false, error: "gh: not logged in" });
 			assert.strictEqual(JSON.parse(await fs.readFile(path.join(folder, "pr-status.json"), "utf8")).generatedAt, "g1");
 		});
+	});
+});
+
+suite("localChanges", () => {
+	test("parseRemote handles ssh, https and case", () => {
+		for (const u of ["git@github.com:Owner/Repo.git", "https://github.com/owner/repo", "https://github.com/owner/repo.git", "ssh://git@github.com/owner/repo.git"]) {
+			assert.strictEqual(parseRemote(u), "owner/repo", u);
+		}
+		assert.strictEqual(parseRemote("git@gitlab.com:owner/repo.git"), undefined);
+	});
+
+	test("localChangesFor flags dirty or ahead branches only", () => {
+		const p = pr({ repo: "o/r", number: 5, headRefName: "feat" });
+		const repo = (o: Partial<RepoInfo>): RepoInfo => ({ remotes: ["git@github.com:o/r.git"], dirty: 0, branches: [], ...o });
+		assert.strictEqual(localChangesFor([p], [repo({ head: "feat", dirty: 3 })]).get("o/r#5"), "3 uncommitted files on feat");
+		assert.strictEqual(localChangesFor([p], [repo({ branches: [{ name: "feat", ahead: 2 }] })]).get("o/r#5"), "2 unpushed commits on feat");
+		assert.strictEqual(localChangesFor([p], [repo({ head: "main", dirty: 3, branches: [{ name: "feat", ahead: 0 }] })]).size, 0);
+		assert.strictEqual(localChangesFor([p], [repo({ remotes: ["git@github.com:x/y.git"], head: "feat", dirty: 1 })]).size, 0);
+		assert.strictEqual(localChangesFor([pr({ number: 5 })], [repo({ head: "feat", dirty: 1 })]).size, 0);
 	});
 });
