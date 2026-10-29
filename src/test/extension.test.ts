@@ -11,6 +11,7 @@ import { candidateFolders, loadSection } from '../discovery';
 import { findScript, prSpecs, runRefresh } from '../refresh';
 import { RepoInfo, localChangesFor, parseRemote } from '../localChanges';
 import { Pr, Section, countNeedsYou, parseStatusFile, pickNext, pillFor } from '../model';
+import { buildState } from '../view';
 
 export const pr = (o: Partial<Pr>): Pr => ({ repo: "o/r", number: 1, title: "t", url: "u", base: "main", phase: "ready", status: "ready:ready", next: "merge", hint: "", reviewOrder: null, ...o });
 export const sec = (prs: Pr[], folder = "/w"): Section => ({ folder, file: { version: 1, generatedAt: "2026-10-29T09:00:00Z", prs } });
@@ -169,5 +170,18 @@ suite("localChanges", () => {
 		assert.strictEqual(localChangesFor([p], [repo({ head: "main", dirty: 3, branches: [{ name: "feat", ahead: 0 }] })]).size, 0);
 		assert.strictEqual(localChangesFor([p], [repo({ remotes: ["git@github.com:x/y.git"], head: "feat", dirty: 1 })]).size, 0);
 		assert.strictEqual(localChangesFor([pr({ number: 5 })], [repo({ head: "feat", dirty: 1 })]).size, 0);
+	});
+});
+
+suite("view", () => {
+	test("buildState picks next past local changes, labels several sections and attaches pills", () => {
+		const a = pr({ repo: "o/a", number: 1, status: "ready:needs-you", next: "you" });
+		const b = pr({ repo: "o/b", number: 2, status: "ready:needs-you", next: "you" });
+		const state = buildState([sec([a], "/w/one"), { ...sec([b], "/w/two"), error: "bad" }], new Map([["o/a#1", "1 unpushed commits on x"]]), { scriptMissing: false });
+		assert.deepStrictEqual(state.next, { key: "o/b#2", folder: "/w/two" });
+		assert.deepStrictEqual(state.sections.map(s => [s.label, s.error, s.generatedAt]), [["one", undefined, "2026-10-29T09:00:00Z"], ["two", "bad", "2026-10-29T09:00:00Z"]]);
+		assert.strictEqual(state.sections[0].prs[0].local, "1 unpushed commits on x");
+		assert.deepStrictEqual(state.sections[1].prs[0].pill, { label: "Needs you", tone: "orange" });
+		assert.strictEqual(buildState([sec([a])], new Map(), { scriptMissing: false }).sections[0].label, undefined);
 	});
 });

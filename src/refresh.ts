@@ -138,6 +138,10 @@ export class Refresher implements vscode.Disposable {
 		this.schedule();
 	}
 
+	get current(): RefreshState {
+		return this.state;
+	}
+
 	private config() {
 		return vscode.workspace.getConfiguration("prStatus");
 	}
