@@ -1,10 +1,14 @@
 import * as assert from 'assert';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from 'vscode';
 // import * as myExtension from '../../extension';
 import { candidateFolders, loadSection } from '../discovery';
+import { findScript, prSpecs, runRefresh } from '../refresh';
 import { Pr, Section, countNeedsYou, parseStatusFile, pickNext, pillFor } from '../model';
 
 export const pr = (o: Partial<Pr>): Pr => ({ repo: "o/r", number: 1, title: "t", url: "u", base: "main", phase: "ready", status: "ready:ready", next: "merge", hint: "", reviewOrder: null, ...o });
@@ -72,5 +76,61 @@ suite("discovery", () => {
 		const bad = loadSection("/w", good, '{"version":1,');
 		assert.strictEqual(bad.file?.generatedAt, "g1");
 		assert.ok(bad.error);
+	});
+});
+
+suite("refresh", () => {
+	test("findScript prefers the setting, then pr-review-loop, then baruchiro", () => {
+		const ip = JSON.stringify({ plugins: {
+			"baruchiro@skills": [{ installPath: "/c/b" }],
+			"pr-review-loop@skills": [{ installPath: "/c/p" }] } });
+		const tail = "/skills/resolving-pr-review-comments/pr-status.sh";
+		assert.strictEqual(findScript("/x.sh", ip), "/x.sh");
+		assert.strictEqual(findScript("", ip), "/c/p" + tail);
+		assert.strictEqual(findScript("", JSON.stringify({ plugins: { "baruchiro@skills": [{ installPath: "/c/b" }] } })), "/c/b" + tail);
+		assert.strictEqual(findScript("", undefined), undefined);
+		assert.strictEqual(findScript("", "{"), undefined);
+	});
+
+	test("prSpecs keeps file order", () => {
+		assert.deepStrictEqual(prSpecs({ version: 1, generatedAt: "g", prs: [pr({ number: 9 }), pr({ repo: "a/b", number: 1 })] }), ["o/r#9", "a/b#1"]);
+	});
+
+	async function withFolder(scriptBody: string, run: (folder: string, script: string) => Promise<void>) {
+		const folder = await fs.mkdtemp(path.join(os.tmpdir(), "pr-status-test-"));
+		try {
+			await fs.writeFile(path.join(folder, "pr-status.json"), '{"version":1,"generatedAt":"g1","prs":[]}');
+			const script = path.join(folder, "fake.sh");
+			await fs.writeFile(script, `#!/bin/bash\n${scriptBody}\n`);
+			await fs.chmod(script, 0o755);
+			await run(folder, script);
+		} finally {
+			await fs.rm(folder, { recursive: true, force: true });
+		}
+	}
+
+	test("runRefresh replaces the files on success", async () => {
+		await withFolder('echo \'{"version":1,"generatedAt":"g2","prs":[]}\' > "$PR_STATUS_JSON_FILE"; echo -n x > "$PR_STATUS_FILE"', async (folder, script) => {
+			assert.deepStrictEqual(await runRefresh(folder, script, [], "/bin/bash"), { ok: true });
+			assert.strictEqual(JSON.parse(await fs.readFile(path.join(folder, "pr-status.json"), "utf8")).generatedAt, "g2");
+			assert.strictEqual(await fs.readFile(path.join(folder, "pr-status.md"), "utf8"), "x");
+			assert.deepStrictEqual((await fs.readdir(folder)).filter(f => f.endsWith(".tmp")), []);
+		});
+	});
+
+	test("runRefresh discards its result when the file changed meanwhile", async () => {
+		const body = 'echo \'{"version":1,"generatedAt":"g2","prs":[]}\' > "$PR_STATUS_JSON_FILE"; echo x > "$PR_STATUS_FILE"; echo \'{"version":1,"generatedAt":"agent","prs":[]}\' > "$(dirname "$0")/pr-status.json"';
+		await withFolder(body, async (folder, script) => {
+			const result = await runRefresh(folder, script, [], "/bin/bash");
+			assert.strictEqual(result.ok === false && result.discarded, true);
+			assert.strictEqual(JSON.parse(await fs.readFile(path.join(folder, "pr-status.json"), "utf8")).generatedAt, "agent");
+		});
+	});
+
+	test("runRefresh reports first stderr line on failure", async () => {
+		await withFolder('echo; echo "gh: not logged in" >&2; echo more >&2; exit 1', async (folder, script) => {
+			assert.deepStrictEqual(await runRefresh(folder, script, [], "/bin/bash"), { ok: false, error: "gh: not logged in" });
+			assert.strictEqual(JSON.parse(await fs.readFile(path.join(folder, "pr-status.json"), "utf8")).generatedAt, "g1");
+		});
 	});
 });
