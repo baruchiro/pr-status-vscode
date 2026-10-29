@@ -7,7 +7,7 @@
       "url": "https://github.com/acme/web/pull/412", "base": "main", "phase": "ready",
       "status": "ready:needs-you", "next": "you", "hint": "3 unresolved threads to review",
       "reviewOrder": "https://github.com/acme/web/pull/412/files?sorted=1",
-      "state": "OPEN", "headRefName": "feat/event-reminders", "headRefOid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "threads": 3
+      "state": "OPEN", "headRefName": "feat/event-reminders", "headRefOid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "threads": 3, "ci": "pending"
     },
     {
       "repo": "acme/api", "number": 87, "title": "Paginate the members endpoint",

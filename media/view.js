@@ -70,6 +70,14 @@
 		return row;
 	}
 
+	function statusPills(pr) {
+		const pills = [pill(pr.pill.label, pr.pill.tone)];
+		if (pr.ciPill) {
+			pills.push(pill(pr.ciPill.label, pr.ciPill.tone));
+		}
+		return pills;
+	}
+
 	function metaPills(pr) {
 		const pills = [];
 		if (pr.phase === "draft") {
@@ -101,7 +109,7 @@
 			const title = el("h3", "card-title");
 			title.append(el("span", "num", "#" + pr.number), " " + pr.title);
 			const pills = el("div", "pills");
-			pills.append(pill(pr.pill.label, pr.pill.tone), ...metaPills(pr));
+			pills.append(...statusPills(pr), ...metaPills(pr));
 			card.append(title, pills);
 			if (pr.hint) {
 				card.append(el("div", "hint", pr.hint));
@@ -177,7 +185,7 @@
 			if (pr.local) {
 				row.append(localPill(pr.local));
 			}
-			row.append(pill(pr.pill.label, pr.pill.tone));
+			row.append(...statusPills(pr));
 			row.title = "#" + pr.number + " " + pr.title;
 
 			item.append(row, details);

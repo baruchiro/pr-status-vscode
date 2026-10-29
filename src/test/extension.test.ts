@@ -5,7 +5,7 @@ import * as path from 'path';
 import { candidateFolders, loadSection } from '../discovery';
 import { findScript, prSpecs, runRefresh } from '../refresh';
 import { RepoInfo, localChangesFor, parseRemote } from '../localChanges';
-import { Pr, Section, countNeedsYou, parseStatusFile, pickNext, pillFor } from '../model';
+import { Pr, Section, ciPillFor, countNeedsYou, parseStatusFile, pickNext, pillFor } from '../model';
 import { buildState } from '../view';
 
 export const pr = (o: Partial<Pr>): Pr => ({ repo: "o/r", number: 1, title: "t", url: "u", base: "main", phase: "ready", status: "ready:ready", next: "merge", hint: "", reviewOrder: null, ...o });
@@ -17,7 +17,7 @@ suite("model", () => {
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:needs-agent" })), { label: "Claude's turn", tone: "purple" });
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:ci-failing" })), { label: "CI failing", tone: "red" });
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:cr-pending" })), { label: "CodeRabbit running", tone: "yellow" });
-		assert.deepStrictEqual(pillFor(pr({ status: "ready:ci-pending" })), { label: "CI running", tone: "yellow" });
+		assert.deepStrictEqual(pillFor(pr({ status: "ready:ci-pending" })), { label: "Waiting", tone: "neutral" });
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:cr-not-triggered" })), { label: "Check CodeRabbit", tone: "yellow" });
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:cr-no-activity" })), { label: "Check CodeRabbit", tone: "yellow" });
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:ready" })), { label: "Ready to merge", tone: "green" });
@@ -25,6 +25,13 @@ suite("model", () => {
 		assert.deepStrictEqual(pillFor(pr({ status: "merged" })), { label: "Merged", tone: "neutral" });
 		assert.deepStrictEqual(pillFor(pr({ status: "closed" })), { label: "Closed", tone: "neutral" });
 		assert.deepStrictEqual(pillFor(pr({ status: "ready:something-new" })), { label: "ready:something-new", tone: "neutral" });
+	});
+
+	test("ciPillFor shows CI running beside any status", () => {
+		assert.deepStrictEqual(ciPillFor(pr({ status: "ready:needs-you", ci: "pending" })), { label: "CI running", tone: "yellow" });
+		assert.deepStrictEqual(ciPillFor(pr({ status: "ready:ci-pending" })), { label: "CI running", tone: "yellow" });
+		assert.strictEqual(ciPillFor(pr({ status: "ready:needs-you", ci: "ok" })), undefined);
+		assert.strictEqual(ciPillFor(pr({ status: "ready:needs-you" })), undefined);
 	});
 
 	test("pillFor tolerates old JSON", () => {

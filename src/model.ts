@@ -13,6 +13,7 @@ export interface Pr {
 	headRefName?: string;
 	headRefOid?: string;
 	threads?: number;
+	ci?: "pending" | "failing" | "ok" | "none";
 }
 
 export interface StatusFile {
@@ -34,7 +35,7 @@ const PILLS: Record<string, { label: string; tone: Tone }> = {
 	"needs-agent": { label: "Claude's turn", tone: "purple" },
 	"ci-failing": { label: "CI failing", tone: "red" },
 	"cr-pending": { label: "CodeRabbit running", tone: "yellow" },
-	"ci-pending": { label: "CI running", tone: "yellow" },
+	"ci-pending": { label: "Waiting", tone: "neutral" },
 	"cr-not-triggered": { label: "Check CodeRabbit", tone: "yellow" },
 	"cr-no-activity": { label: "Check CodeRabbit", tone: "yellow" },
 	"ready": { label: "Ready to merge", tone: "green" },
@@ -79,6 +80,10 @@ export function pillFor(pr: Pr): { label: string; tone: Tone } {
 		return { label: `${pill.label} · ${pr.threads}`, tone: pill.tone };
 	}
 	return pill;
+}
+
+export function ciPillFor(pr: Pr): { label: string; tone: Tone } | undefined {
+	return pr.ci === "pending" || pr.status.endsWith(":ci-pending") ? { label: "CI running", tone: "yellow" } : undefined;
 }
 
 export function pickNext(sections: Section[], localChanges: ReadonlySet<string>): { sectionIndex: number; pr: Pr } | undefined {

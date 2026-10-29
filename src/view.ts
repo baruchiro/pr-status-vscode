@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { StatusStore } from './discovery';
 import { LocalChangesTracker } from './localChanges';
-import { Pr, Section, Tone, countNeedsYou, pickNext, pillFor, prKey } from './model';
+import { Pr, Section, Tone, ciPillFor, countNeedsYou, pickNext, pillFor, prKey } from './model';
 import { RefreshState, Refresher } from './refresh';
 
 export interface ViewSection {
@@ -11,7 +11,7 @@ export interface ViewSection {
 	label?: string;
 	error?: string;
 	generatedAt?: string;
-	prs: Array<Pr & { pill: { label: string; tone: Tone }; local?: string }>;
+	prs: Array<Pr & { pill: { label: string; tone: Tone }; ciPill?: { label: string; tone: Tone }; local?: string }>;
 }
 
 export interface StateMessage {
@@ -30,7 +30,7 @@ export function buildState(sections: Section[], local: ReadonlyMap<string, strin
 			label: sections.length > 1 ? path.basename(s.folder) : undefined,
 			error: s.error,
 			generatedAt: s.file?.generatedAt,
-			prs: (s.file?.prs ?? []).map(pr => ({ ...pr, pill: pillFor(pr), local: local.get(prKey(pr)) })),
+			prs: (s.file?.prs ?? []).map(pr => ({ ...pr, pill: pillFor(pr), ciPill: ciPillFor(pr), local: local.get(prKey(pr)) })),
 		})),
 		next: picked && { key: prKey(picked.pr), folder: sections[picked.sectionIndex].folder },
 		refresh,
