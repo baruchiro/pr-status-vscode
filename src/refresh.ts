@@ -79,6 +79,9 @@ export async function runRefresh(folder: string, script: string, specs: string[]
 			const line = stderr.split("\n").map(l => l.trim()).find(l => l);
 			return { ok: false, error: line ?? `Script exited with code ${code}` };
 		}
+		if (!await fs.stat(jsonTmp).then(() => true, () => false)) {
+			return { ok: false, error: "the installed skill is too old to write pr-status.json; update it with: claude plugin install pr-review-loop@skills" };
+		}
 		if (await generatedAt(jsonTarget) !== before) {
 			return { ok: false, error: "file changed during refresh", discarded: true };
 		}

@@ -127,6 +127,14 @@ suite("refresh", () => {
 		});
 	});
 
+	test("runRefresh reports an old skill that writes no JSON", async () => {
+		await withFolder('echo -n x > "$PR_STATUS_FILE"', async (folder, script) => {
+			const result = await runRefresh(folder, script, [], "/bin/bash");
+			assert.ok(!result.ok && /too old/.test(result.error));
+			assert.strictEqual(JSON.parse(await fs.readFile(path.join(folder, "pr-status.json"), "utf8")).generatedAt, "g1");
+		});
+	});
+
 	test("runRefresh reports first stderr line on failure", async () => {
 		await withFolder('echo; echo "gh: not logged in" >&2; echo more >&2; exit 1', async (folder, script) => {
 			assert.deepStrictEqual(await runRefresh(folder, script, [], "/bin/bash"), { ok: false, error: "gh: not logged in" });
