@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-29T09:00:00Z",
+  "prs": [
+    {
+      "repo": "acme/web", "number": 412, "title": "Add event reminders to the hub page",
+      "url": "https://github.com/acme/web/pull/412", "base": "main", "phase": "ready",
+      "status": "ready:needs-you", "next": "you", "hint": "3 unresolved threads to review",
+      "reviewOrder": "https://github.com/acme/web/pull/412/files?sorted=1",
+      "state": "OPEN", "headRefName": "feat/event-reminders", "headRefOid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "threads": 3
+    },
+    {
+      "repo": "acme/api", "number": 87, "title": "Paginate the members endpoint",
+      "url": "https://github.com/acme/api/pull/87", "base": "main", "phase": "ready",
+      "status": "ready:needs-agent", "next": "claude", "hint": "CodeRabbit left 2 comments to address",
+      "reviewOrder": "https://github.com/acme/api/pull/87/files?sorted=1",
+      "state": "OPEN", "headRefName": "fix/members-pagination", "headRefOid": "b2c3d4e5f60718293a4b5c6d7e8f901234567890", "threads": 2
+    },
+    {
+      "repo": "acme/api", "number": 91, "title": "Retry failed webhook deliveries",
+      "url": "https://github.com/acme/api/pull/91", "base": "main", "phase": "ready",
+      "status": "ready:ci-failing", "next": "wait", "hint": "lint job failed",
+      "reviewOrder": null,
+      "state": "OPEN", "headRefName": "feat/webhook-retries", "headRefOid": "c3d4e5f60718293a4b5c6d7e8f90123456789012", "threads": 0
+    },
+    {
+      "repo": "acme/mobile", "number": 230, "title": "Fix crash when opening an expired invite",
+      "url": "https://github.com/acme/mobile/pull/230", "base": "develop", "phase": "ready",
+      "status": "ready:cr-pending", "next": "wait", "hint": "waiting for CodeRabbit",
+      "reviewOrder": "stale",
+      "state": "OPEN", "headRefName": "fix/expired-invite-crash", "headRefOid": "d4e5f60718293a4b5c6d7e8f9012345678901234", "threads": 0
+    },
+    {
+      "repo": "acme/web", "number": 405, "title": "Upgrade date picker to v6",
+      "url": "https://github.com/acme/web/pull/405", "base": "main", "phase": "ready",
+      "status": "ready:ready", "next": "merge", "hint": "all checks green, no open threads",
+      "reviewOrder": "https://github.com/acme/web/pull/405/files?sorted=1",
+      "state": "OPEN", "headRefName": "chore/date-picker-v6", "headRefOid": "e5f60718293a4b5c6d7e8f901234567890123456", "threads": 0
+    },
+    {
+      "repo": "acme/docs", "number": 58, "title": "Document the reminders API",
+      "url": "https://github.com/acme/docs/pull/58", "base": "main", "phase": "merged",
+      "status": "merged", "next": "none", "hint": "merged",
+      "reviewOrder": "https://github.com/acme/docs/pull/58/files?sorted=1",
+      "state": "MERGED", "headRefName": "docs/reminders-api", "headRefOid": "f60718293a4b5c6d7e8f90123456789012345678", "threads": 0
+    }
+  ]
+}
