@@ -18,7 +18,7 @@ export interface RefreshState {
 export type RefreshResult = { ok: true } | { ok: false; error: string; discarded?: boolean };
 
 export function findScript(setting: string, installedPluginsJson: string | undefined): string | undefined {
-	if (setting) {
+	if (path.isAbsolute(setting)) {
 		return setting;
 	}
 	if (!installedPluginsJson) {
@@ -40,8 +40,12 @@ export function findScript(setting: string, installedPluginsJson: string | undef
 	return undefined;
 }
 
+const SAFE_REPO = /^(?!-)[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
 export function prSpecs(file: StatusFile): string[] {
-	return file.prs.map(p => `${p.repo}#${p.number}`);
+	return file.prs
+		.filter(p => typeof p.repo === "string" && SAFE_REPO.test(p.repo) && Number.isInteger(p.number) && p.number > 0)
+		.map(p => `${p.repo}#${p.number}`);
 }
 
 async function generatedAt(file: string): Promise<string | undefined> {
@@ -86,7 +90,8 @@ export async function runRefresh(folder: string, script: string, specs: string[]
 			return { ok: false, error: "file changed during refresh", discarded: true };
 		}
 		for (const [from, to] of [[mdTmp, mdTarget], [jsonTmp, jsonTarget]]) {
-			await fs.copyFile(from, `${to}.tmp`);
+			await fs.rm(`${to}.tmp`, { force: true });
+			await fs.copyFile(from, `${to}.tmp`, fs.constants.COPYFILE_EXCL);
 			await fs.rename(`${to}.tmp`, to);
 		}
 		return { ok: true };
@@ -122,9 +127,10 @@ export class Refresher implements vscode.Disposable {
 					this.schedule();
 				}
 			}),
+			vscode.workspace.onDidGrantWorkspaceTrust(() => this.schedule()),
 			vscode.window.onDidChangeWindowState(w => {
 				const interval = this.intervalMs();
-				if (w.focused && interval && this.state.lastRun && Date.now() - this.state.lastRun.getTime() > interval) {
+				if (w.focused && vscode.workspace.isTrusted && interval && this.state.lastRun && Date.now() - this.state.lastRun.getTime() > interval) {
 					void this.refreshNow();
 				}
 			}),
@@ -154,7 +160,7 @@ export class Refresher implements vscode.Disposable {
 			return;
 		}
 		this.timer = setInterval(() => {
-			if (vscode.window.state.focused) {
+			if (vscode.window.state.focused && vscode.workspace.isTrusted) {
 				void this.refreshNow();
 			}
 		}, interval);
@@ -162,7 +168,13 @@ export class Refresher implements vscode.Disposable {
 	}
 
 	async refreshNow(interactive = false): Promise<void> {
-		const script = findScript(this.config().get<string>("scriptPath", ""), await readInstalledPlugins());
+		if (!vscode.workspace.isTrusted) {
+			if (interactive) {
+				void vscode.window.showWarningMessage("PR Status: trust this workspace to refresh");
+			}
+			return;
+		}
+		const script = findScript(this.config().inspect<string>("scriptPath")?.globalValue ?? "", await readInstalledPlugins());
 		if (!script) {
 			this.set({ scriptMissing: true });
 			if (interactive) {

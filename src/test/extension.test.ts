@@ -97,6 +97,15 @@ suite("refresh", () => {
 		assert.deepStrictEqual(prSpecs({ version: 1, generatedAt: "g", prs: [pr({ number: 9 }), pr({ repo: "a/b", number: 1 })] }), ["o/r#9", "a/b#1"]);
 	});
 
+	test("prSpecs drops unsafe repos and numbers", () => {
+		const prs = [pr({ repo: "-x/y" }), pr({ repo: "a/b;rm" }), pr({ number: 0 }), pr({ number: 1.5 }), pr({ repo: "ok/r-1.x", number: 3 })];
+		assert.deepStrictEqual(prSpecs({ version: 1, generatedAt: "g", prs }), ["ok/r-1.x#3"]);
+	});
+
+	test("findScript ignores a relative setting", () => {
+		assert.strictEqual(findScript("./evil.sh", undefined), undefined);
+	});
+
 	async function withFolder(scriptBody: string, run: (folder: string, script: string) => Promise<void>) {
 		const folder = await fs.mkdtemp(path.join(os.tmpdir(), "pr-status-test-"));
 		try {
