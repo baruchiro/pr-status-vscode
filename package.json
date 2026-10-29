@@ -110,6 +110,18 @@
     "url": "https://github.com/baruchiro/pr-status-vscode"
   },
   "license": "MIT",
+  "icon": "media/icon.png",
+  "keywords": [
+    "pull request",
+    "github",
+    "claude",
+    "code review",
+    "coderabbit"
+  ],
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "extensionDependencies": [
     "vscode.git"
   ],

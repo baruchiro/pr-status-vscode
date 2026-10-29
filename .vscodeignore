@@ -16,3 +16,4 @@ docs/**
 .superpowers/**
 .github/**
 !node_modules/@vscode/codicons/dist/**
+media/icon.svg
