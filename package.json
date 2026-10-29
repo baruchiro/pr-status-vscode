@@ -1,5 +1,5 @@
 {
-  "name": "pr-status",
+  "name": "pr-status-vscode",
   "displayName": "PR Status",
   "description": "Your PRs in review order and whose turn it is, live from the resolving-pr-review-comments Claude Code skill",
   "version": "0.0.1",

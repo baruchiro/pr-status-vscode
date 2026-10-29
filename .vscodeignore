@@ -18,3 +18,4 @@ docs/**
 !node_modules/@vscode/codicons/dist/codicon.css
 !node_modules/@vscode/codicons/dist/codicon.ttf
 media/icon.svg
+vscode-stable-versions.json
