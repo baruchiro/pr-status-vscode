@@ -15,3 +15,4 @@ vsc-extension-quickstart.md
 docs/**
 .superpowers/**
 .github/**
+!node_modules/@vscode/codicons/dist/**
