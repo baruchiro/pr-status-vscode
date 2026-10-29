@@ -4,6 +4,7 @@ import * as assert from 'assert';
 // as well as import your extension to test it
 import * as vscode from 'vscode';
 // import * as myExtension from '../../extension';
+import { candidateFolders, loadSection } from '../discovery';
 import { Pr, Section, countNeedsYou, parseStatusFile, pickNext, pillFor } from '../model';
 
 export const pr = (o: Partial<Pr>): Pr => ({ repo: "o/r", number: 1, title: "t", url: "u", base: "main", phase: "ready", status: "ready:ready", next: "merge", hint: "", reviewOrder: null, ...o });
@@ -56,5 +57,20 @@ suite("model", () => {
 		assert.throws(() => parseStatusFile('{"version":2,"generatedAt":"x","prs":[]}'), /version/);
 		assert.throws(() => parseStatusFile('{"version":1,"generatedAt":"x"}'), /prs/);
 		assert.strictEqual(parseStatusFile('{"version":1,"generatedAt":"x","prs":[]}').prs.length, 0);
+	});
+});
+
+suite("discovery", () => {
+	test("candidateFolders puts the workspace-file folder first and dedupes", () => {
+		assert.deepStrictEqual(candidateFolders(["/w/a", "/w"], "/w/team.code-workspace"), ["/w", "/w/a"]);
+		assert.deepStrictEqual(candidateFolders(["/w/a"], undefined), ["/w/a"]);
+		assert.deepStrictEqual(candidateFolders(["/w/a"], "/tmp/Untitled-1"), ["/w/a"]);
+	});
+
+	test("loadSection keeps last good data on bad JSON", () => {
+		const good = loadSection("/w", undefined, '{"version":1,"generatedAt":"g1","prs":[]}');
+		const bad = loadSection("/w", good, '{"version":1,');
+		assert.strictEqual(bad.file?.generatedAt, "g1");
+		assert.ok(bad.error);
 	});
 });
