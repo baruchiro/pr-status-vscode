@@ -6,7 +6,7 @@ const SETUP_URL = "https://docs.claude.com/en/docs/claude-code/setup";
 
 function hasClaude(shell: string): Promise<boolean> {
 	return new Promise(resolve => {
-		childProcess.execFile(shell, ["-lc", "command -v claude"], err => resolve(!err));
+		childProcess.execFile(shell, ["-lc", "command -v claude"], { timeout: 10_000 }, err => resolve(!err));
 	});
 }
 

@@ -60,6 +60,7 @@
           "type": "number",
           "default": 300,
           "minimum": 0,
+          "maximum": 2147483,
           "description": "Seconds between automatic refreshes. 0 turns automatic refresh off."
         },
         "prStatus.scriptPath": {

@@ -43,6 +43,8 @@ const PILLS: Record<string, { label: string; tone: Tone }> = {
 	"closed": { label: "Closed", tone: "neutral" },
 };
 
+const REQUIRED_STRINGS = ["repo", "title", "url", "status", "next"];
+
 export function parseStatusFile(text: string): StatusFile {
 	let data: any;
 	try {
@@ -55,6 +57,10 @@ export function parseStatusFile(text: string): StatusFile {
 	}
 	if (!Array.isArray(data.prs)) {
 		throw new Error("pr-status.json has no prs array");
+	}
+	const bad = data.prs.findIndex((p: any) => !(p && typeof p === "object" && Number.isInteger(p.number) && REQUIRED_STRINGS.every(k => typeof p[k] === "string")));
+	if (bad >= 0) {
+		throw new Error(`pr-status.json prs[${bad}] needs string repo, title, url, status and next, and an integer number`);
 	}
 	return data as StatusFile;
 }

@@ -6,6 +6,7 @@
 	let state = saved.state;
 	const expanded = new Set(saved.expanded || []);
 	let timeEl;
+	let showNext = false;
 	let updated = 0;
 
 	function save() {
@@ -148,6 +149,11 @@
 			if (pr.hint) {
 				details.append(el("div", "hint", pr.hint));
 			}
+			if (pr.local) {
+				const local = el("div", "hint");
+				local.append(icon("sync"), " " + pr.local);
+				details.append(local);
+			}
 			const pills = el("div", "pills");
 			pills.append(...metaPills(pr));
 			details.append(pills, actions(pr, id));
@@ -187,18 +193,26 @@
 
 	function renderFooter() {
 		footer.replaceChildren();
-		timeEl = undefined;
 		const refresh = state.refresh;
-		if (refresh.scriptMissing) {
-			footer.append("Auto refresh off: skill not found · ", link("Install skill", { type: "installSkill" }), " · ", link("Settings", { type: "openSettings" }));
+		let notes = [];
+		if (refresh.untrusted) {
+			notes = ["Auto refresh off: workspace not trusted"];
+		} else if (refresh.scriptMissing) {
+			notes = ["Auto refresh off: skill not found", link("Install skill", { type: "installSkill" }), link("Settings", { type: "openSettings" })];
 		} else if (refresh.error) {
 			const error = el("span", "error");
 			error.append(icon("warning"), " " + refresh.error);
-			footer.append(error, " · ", link("Retry", { type: "refresh" }));
-		} else {
-			timeEl = el("span");
-			footer.append(timeEl);
-			tick();
+			notes = [error, link("Retry", { type: "refresh" })];
+		}
+		showNext = !notes.length;
+		timeEl = el("span");
+		footer.append(timeEl);
+		tick();
+		for (const note of notes) {
+			if (footer.textContent) {
+				footer.append(" · ");
+			}
+			footer.append(note);
 		}
 	}
 
@@ -228,7 +242,7 @@
 		if (updated) {
 			parts.push("Updated " + ago(now - updated));
 		}
-		if (state.refresh.nextRun) {
+		if (showNext && state.refresh.nextRun) {
 			parts.push("next check in " + countdown(new Date(state.refresh.nextRun).getTime() - now));
 		}
 		timeEl.textContent = parts.join(" · ");

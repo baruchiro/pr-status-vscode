@@ -13,6 +13,7 @@ export interface RefreshState {
 	nextRun?: Date;
 	error?: string;
 	scriptMissing: boolean;
+	untrusted?: boolean;
 }
 
 export type RefreshResult = { ok: true } | { ok: false; error: string; discarded?: boolean };
@@ -56,11 +57,11 @@ async function generatedAt(file: string): Promise<string | undefined> {
 	}
 }
 
-function execScript(shell: string, script: string, specs: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<{ code: number; stderr: string }> {
+function execScript(shell: string, script: string, specs: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<{ code: number; stderr: string; timedOut: boolean }> {
 	return new Promise(resolve => {
-		childProcess.execFile(shell, ["-lc", '"$0" "$@"', script, ...specs], { cwd, env }, (err, _stdout, stderr) => {
+		childProcess.execFile(shell, ["-lc", '"$0" "$@"', script, ...specs], { cwd, env, timeout: 120_000 }, (err, _stdout, stderr) => {
 			const code = err ? (typeof err.code === "number" ? err.code : 1) : 0;
-			resolve({ code, stderr: err && typeof err.code !== "number" ? `${err.message}\n${stderr}` : stderr });
+			resolve({ code, stderr: err && typeof err.code !== "number" ? `${err.message}\n${stderr}` : stderr, timedOut: !!err?.killed });
 		});
 	});
 }
@@ -68,17 +69,21 @@ function execScript(shell: string, script: string, specs: string[], cwd: string,
 export async function runRefresh(folder: string, script: string, specs: string[], shell = process.env.SHELL ?? "/bin/bash"): Promise<RefreshResult> {
 	const jsonTarget = path.join(folder, "pr-status.json");
 	const mdTarget = path.join(folder, "pr-status.md");
-	const before = await generatedAt(jsonTarget);
-	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "pr-status-"));
+	let tmp: string | undefined;
 	try {
+		const before = await generatedAt(jsonTarget);
+		tmp = await fs.mkdtemp(path.join(os.tmpdir(), "pr-status-"));
 		const mdTmp = path.join(tmp, "pr-status.md");
 		const jsonTmp = path.join(tmp, "pr-status.json");
-		const { code, stderr } = await execScript(shell, script, specs, folder, {
+		const { code, stderr, timedOut } = await execScript(shell, script, specs, folder, {
 			...process.env,
 			PR_STATUS_FILE: mdTmp,
 			PR_STATUS_JSON_FILE: jsonTmp,
 			PR_REVIEW_LINKS_FILE: path.join(folder, "pr-review-links.json"),
 		});
+		if (timedOut) {
+			return { ok: false, error: "pr-status.sh timed out after 2 minutes" };
+		}
 		if (code !== 0) {
 			const line = stderr.split("\n").map(l => l.trim()).find(l => l);
 			return { ok: false, error: line ?? `Script exited with code ${code}` };
@@ -98,7 +103,9 @@ export async function runRefresh(folder: string, script: string, specs: string[]
 	} catch (e) {
 		return { ok: false, error: (e as Error).message };
 	} finally {
-		await fs.rm(tmp, { recursive: true, force: true });
+		if (tmp) {
+			await fs.rm(tmp, { recursive: true, force: true }).catch(() => undefined);
+		}
 	}
 }
 
@@ -110,12 +117,16 @@ async function readInstalledPlugins(): Promise<string | undefined> {
 	}
 }
 
+// setTimeout fires at once for delays past 2^31-1 ms.
+const MAX_INTERVAL_SECONDS = 2147483;
+
 export class Refresher implements vscode.Disposable {
 	private readonly emitter = new vscode.EventEmitter<RefreshState>();
 	readonly onDidChangeState = this.emitter.event;
 	private state: RefreshState = { scriptMissing: false };
 	private timer: NodeJS.Timeout | undefined;
-	private readonly running = new Set<string>();
+	private busy = false;
+	private due = false;
 	private readonly disposables: vscode.Disposable[] = [];
 
 	constructor(private readonly store: StatusStore) {
@@ -127,11 +138,19 @@ export class Refresher implements vscode.Disposable {
 					this.schedule();
 				}
 			}),
-			vscode.workspace.onDidGrantWorkspaceTrust(() => this.schedule()),
+			vscode.workspace.onDidGrantWorkspaceTrust(() => {
+				this.schedule();
+				this.refreshIfOwed();
+			}),
 			vscode.window.onDidChangeWindowState(w => {
-				const interval = this.intervalMs();
-				if (w.focused && vscode.workspace.isTrusted && interval && this.state.lastRun && Date.now() - this.state.lastRun.getTime() > interval) {
-					void this.refreshNow();
+				if (w.focused) {
+					this.refreshIfOwed();
+				}
+			}),
+			// The activation run waits for the store's first load, which is async.
+			store.onDidChange(() => {
+				if (!this.state.lastRun) {
+					this.refreshIfOwed();
 				}
 			}),
 		);
@@ -147,7 +166,7 @@ export class Refresher implements vscode.Disposable {
 	}
 
 	private intervalMs(): number {
-		return Math.max(0, this.config().get<number>("refreshIntervalSeconds", 300)) * 1000;
+		return Math.min(MAX_INTERVAL_SECONDS, Math.max(0, this.config().get<number>("refreshIntervalSeconds", 300))) * 1000;
 	}
 
 	private set(patch: Partial<RefreshState>) {
@@ -156,22 +175,50 @@ export class Refresher implements vscode.Disposable {
 	}
 
 	private schedule() {
-		clearInterval(this.timer);
+		clearTimeout(this.timer);
 		this.timer = undefined;
 		const interval = this.intervalMs();
-		if (!interval) {
-			this.set({ nextRun: undefined });
-			return;
+		const untrusted = !vscode.workspace.isTrusted;
+		if (interval && !untrusted) {
+			this.timer = setTimeout(() => this.onTimer(), interval);
 		}
-		this.timer = setInterval(() => {
-			if (vscode.window.state.focused && vscode.workspace.isTrusted) {
-				void this.refreshNow();
-			}
-		}, interval);
-		this.set({ nextRun: new Date(Date.now() + interval) });
+		this.set({ untrusted, nextRun: this.timer ? new Date(Date.now() + interval) : undefined });
+	}
+
+	private onTimer() {
+		this.due = true;
+		if (vscode.window.state.focused) {
+			void this.refreshNow();
+		} else {
+			this.schedule();
+		}
+	}
+
+	private refreshIfOwed() {
+		const interval = this.intervalMs();
+		const last = this.state.lastRun?.getTime();
+		if (interval && vscode.workspace.isTrusted && vscode.window.state.focused && (last === undefined || this.due || Date.now() - last >= interval)) {
+			void this.refreshNow();
+		}
 	}
 
 	async refreshNow(interactive = false): Promise<void> {
+		if (this.busy) {
+			return;
+		}
+		this.busy = true;
+		clearTimeout(this.timer);
+		this.set({ nextRun: undefined });
+		try {
+			await this.run(interactive);
+		} finally {
+			this.busy = false;
+			this.due = false;
+			this.schedule();
+		}
+	}
+
+	private async run(interactive: boolean): Promise<void> {
 		if (!vscode.workspace.isTrusted) {
 			if (interactive) {
 				void vscode.window.showWarningMessage("PR Status: trust this workspace to refresh");
@@ -186,33 +233,20 @@ export class Refresher implements vscode.Disposable {
 			}
 			return;
 		}
-		const sections = this.store.sections.filter(s => s.file && !this.running.has(s.folder));
-		const errors: string[] = [];
-		await Promise.all(sections.map(async s => {
-			this.running.add(s.folder);
-			try {
-				const result = await runRefresh(s.folder, script, prSpecs(s.file!));
-				if (!result.ok && !result.discarded) {
-					errors.push(result.error);
-				}
-			} finally {
-				this.running.delete(s.folder);
-			}
-		}));
-		const interval = this.intervalMs();
-		this.set({
-			scriptMissing: false,
-			lastRun: new Date(),
-			nextRun: interval ? new Date(Date.now() + interval) : undefined,
-			error: errors[0],
+		const jobs = this.store.sections.flatMap(s => {
+			const specs = s.file ? prSpecs(s.file) : [];
+			return specs.length ? [{ folder: s.folder, specs }] : [];
 		});
-		if (interactive && errors[0]) {
-			void vscode.window.showErrorMessage(`PR Status: ${errors[0]}`);
+		const results = await Promise.all(jobs.map(j => runRefresh(j.folder, script, j.specs)));
+		const error = results.flatMap(r => r.ok || r.discarded ? [] : [r.error])[0];
+		this.set({ scriptMissing: false, lastRun: new Date(), error });
+		if (interactive && error) {
+			void vscode.window.showErrorMessage(`PR Status: ${error}`);
 		}
 	}
 
 	dispose() {
-		clearInterval(this.timer);
+		clearTimeout(this.timer);
 		this.disposables.forEach(d => d.dispose());
 	}
 }

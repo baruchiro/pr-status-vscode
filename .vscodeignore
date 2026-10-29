@@ -15,5 +15,6 @@ vsc-extension-quickstart.md
 docs/**
 .superpowers/**
 .github/**
-!node_modules/@vscode/codicons/dist/**
+!node_modules/@vscode/codicons/dist/codicon.css
+!node_modules/@vscode/codicons/dist/codicon.ttf
 media/icon.svg

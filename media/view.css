@@ -1,22 +1,23 @@
 body {
 	margin: 0;
-	padding: 4px 12px 0;
-	min-height: 100vh;
+	padding: 0;
+	height: 100vh;
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	color: var(--vscode-foreground);
-	background: var(--vscode-sideBar-background);
 	font-family: var(--vscode-font-family);
 	font-size: var(--vscode-font-size);
 }
 
 main {
 	flex-grow: 1;
+	min-height: 0;
+	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
 	gap: 14px;
-	padding-bottom: 12px;
+	padding: 4px 12px 12px;
 }
 
 .group {
@@ -240,13 +241,10 @@ main {
 }
 
 footer {
-	position: sticky;
-	bottom: 0;
-	margin: 0 -12px;
+	flex-shrink: 0;
 	padding: 8px 20px;
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
-	background: var(--vscode-sideBar-background);
 	border-top: 1px solid var(--vscode-panel-border);
 	overflow-wrap: anywhere;
 }

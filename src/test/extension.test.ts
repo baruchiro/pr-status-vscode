@@ -2,11 +2,6 @@ import * as assert from 'assert';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-
-// You can import and use all API from the 'vscode' module
-// as well as import your extension to test it
-import * as vscode from 'vscode';
-// import * as myExtension from '../../extension';
 import { candidateFolders, loadSection } from '../discovery';
 import { findScript, prSpecs, runRefresh } from '../refresh';
 import { RepoInfo, localChangesFor, parseRemote } from '../localChanges';
@@ -15,15 +10,6 @@ import { buildState } from '../view';
 
 export const pr = (o: Partial<Pr>): Pr => ({ repo: "o/r", number: 1, title: "t", url: "u", base: "main", phase: "ready", status: "ready:ready", next: "merge", hint: "", reviewOrder: null, ...o });
 export const sec = (prs: Pr[], folder = "/w"): Section => ({ folder, file: { version: 1, generatedAt: "2026-10-29T09:00:00Z", prs } });
-
-suite('Extension Test Suite', () => {
-	vscode.window.showInformationMessage('Start all tests.');
-
-	test('Sample test', () => {
-		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
-		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
-	});
-});
 
 suite("model", () => {
 	test("pillFor maps every status", () => {
@@ -62,6 +48,11 @@ suite("model", () => {
 		assert.throws(() => parseStatusFile("{"));
 		assert.throws(() => parseStatusFile('{"version":2,"generatedAt":"x","prs":[]}'), /version/);
 		assert.throws(() => parseStatusFile('{"version":1,"generatedAt":"x"}'), /prs/);
+		const file = (...prs: unknown[]) => JSON.stringify({ version: 1, generatedAt: "x", prs });
+		assert.throws(() => parseStatusFile(file(pr({}), { ...pr({}), status: undefined })), /prs\[1\]/);
+		assert.throws(() => parseStatusFile(file(null)), /prs\[0\]/);
+		assert.throws(() => parseStatusFile(file({ ...pr({}), number: "1" })), /prs\[0\]/);
+		assert.strictEqual(parseStatusFile(file({ ...pr({}), base: undefined, hint: undefined })).prs.length, 1);
 		assert.strictEqual(parseStatusFile('{"version":1,"generatedAt":"x","prs":[]}').prs.length, 0);
 	});
 });
