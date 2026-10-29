@@ -1,6 +1,6 @@
 {
-  "name": "pr-status-vscode",
-  "displayName": "PR Status",
+  "name": "pr-review-loop",
+  "displayName": "PR Review Loop",
   "description": "Your PRs in review order and whose turn it is, live from the resolving-pr-review-comments Claude Code skill",
   "version": "0.0.1",
   "engines": {
